@@ -183,4 +183,5 @@ async def on_presence_update(before, after):
             await channel.send(f"{after.display_name}… 왔구나. 오늘 상태는 괜찮은 거지?")
 
 # 실행
-bot.run("TOKEN")
+import os
+bot.run(os.getenv("TOKEN"))
