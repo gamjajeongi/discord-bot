@@ -30,6 +30,11 @@ user_memory = {}
 emotion_state = "calm"
 stress_level = 0
 
+# 특정 유저 시작 호감도
+special_users = {
+    972012158265196625: 80
+}
+
 # =========================
 # 저장/불러오기
 # =========================
@@ -56,8 +61,22 @@ def save_data():
     save_json(MEMORY_FILE, user_memory)
     save_json(SCORE_FILE, {str(k): v for k, v in scores.items()})
 
+def get_initial_affection(user):
+    if user.id in special_users:
+        return special_users[user.id]
+
+    name = user.display_name
+
+    if "관리자" in name:
+        return 60
+    elif "친구" in name:
+        return 40
+    else:
+        return 10
+
 def get_user_data(user):
     user_id = str(user.id)
+
     if user_id not in user_memory:
         user_memory[user_id] = {
             "name": user.display_name,
@@ -65,127 +84,16 @@ def get_user_data(user):
             "chat_count": 0,
             "games_played": 0,
             "wins": 0,
+            "affection": get_initial_affection(user),
             "last_seen": time.time()
         }
+
     user_memory[user_id]["name"] = user.display_name
     user_memory[user_id]["last_seen"] = time.time()
     return user_memory[user_id]
 
 # =========================
-# 호드 대사
-# =========================
-horde_lines = [
-    "…모두 집중해. 이번 상황은 조금 다를 수도 있어.",
-    "괜찮아, 아직 돌이킬 수 있어.",
-    "…내 판단이 틀리지 않았으면 좋겠어.",
-    "지금은 침착하게 대응해야 해.",
-    "조금만 더 버티면 돼… 아마도."
-]
-
-chat_responses_calm = [
-    "{name}… 왔구나. 음… 지금 상태는 괜찮은 거지?",
-    "{name}, 오늘도 와줘서… 고마워. 아, 이건 그냥… 업무적인 의미야.",
-    "{name}, 혹시 불편한 건 없어? 있다면… 말해줘도 괜찮아.",
-    "{name}, 지금 흐름은 나쁘지 않은 것 같아. 그대로 해도 괜찮을 거야.",
-    "{name}, 음… 이런 말 하는 게 맞는지 모르겠지만… 잘하고 있어.",
-    "{name}, 오늘 상태를 보니까… 큰 문제는 없어 보여. 다행이다.",
-    "{name}, 선택하기 어렵다면… 상황을 나눠서 생각해보는 게 좋아.",
-    "{name}, 나는… 이런 시간이 괜찮은 것 같아. 업무적으로도.",
-    "{name}, 혹시 내가 도움이 될 수 있으면 말해줘. 가능하면… 해볼게.",
-    "{name}, 너무 긴장하지 않아도 괜찮아. 아직 여유는 있어."
-]
-
-chat_responses_warm = [
-    "{name}, 또 왔구나. …나쁘지 않아.",
-    "{name}, 요즘 자주 보이네. 그건… 좋은 쪽으로 생각할게.",
-    "{name}, 오늘도 괜찮아 보여서 다행이야.",
-    "{name}, 있잖아… 너무 무리하지만 않으면 좋겠어.",
-    "{name}, 네가 오면 분위기가 조금 안정되는 것 같아.",
-    "{name}, 음… 그냥, 반가워.",
-    "{name}, 오늘은 뭐 할 생각이야? 게임이든 대화든 괜찮아.",
-    "{name}, 전에 비하면 꽤 익숙해졌어. 아마도… 네 덕분일 수도 있고."
-]
-
-chat_responses_worried = [
-    "{name}, 지금은 조금 조심하는 게 좋을 것 같아.",
-    "{name}, 분위기가 조금 불안정해. 너무 무리하진 마.",
-    "{name}, 괜찮아… 아직 크게 틀어진 건 아니야.",
-    "{name}, 내가 괜한 걱정을 하는 걸 수도 있지만… 조금 신경 쓰여.",
-    "{name}, 잠깐 쉬어도 괜찮아. 이건… 권고야.",
-    "{name}, 이번엔 조금 신중하게 가는 편이 좋겠어."
-]
-
-chat_responses_unstable = [
-    "{name}… 괜찮아. 아직 통제는 가능해.",
-    "{name}, 지금은 말을 조금 고르는 게 좋겠어. 나도… 그러고 있으니까.",
-    "{name}, 분위기가 좋지 않아. 그래도 무너지진 않을 거야.",
-    "{name}, 이번에는 실수하지 않았으면 좋겠어. 아… 그냥 한 말이야.",
-    "{name}, 지금은 조금 예민할 수도 있어. 이해해 줘.",
-    "{name}, 괜찮아. 아직은… 괜찮아."
-]
-
-badword_responses = [
-    "…그런 말은 조금 줄이는 게 좋겠어.",
-    "음, 지금은 표현을 조금만 부드럽게 해도 괜찮지 않을까?",
-    "그렇게까지 날카롭게 말하지 않아도… 전달은 될 거야.",
-    "진정해. 지금은 감정보다 말의 방향을 정리하는 게 먼저야.",
-    "…듣고 있으면 조금 신경 쓰여.",
-    "화난 건 알겠는데, 말은 조금만 가라앉혀 줘."
-]
-
-unstable_badword_responses = [
-    "{name}… 지금 상태, 좋지 않아 보여.",
-    "{name}, 그 말은 그냥 넘기기엔 조금 위험해.",
-    "{name}… 너, 상담이 필요해 보여.",
-    "{name}, 이대로 두면… 더 안 좋아질 것 같아.",
-    "{name}, 따라와. 지금 상태를 정리할 필요가 있어.",
-    "{name}… 괜찮다고 말할 수 있는 상태가 아닌 것 같아.",
-    "{name}, 지금은 감정보다… 조정이 먼저야."
-]
-
-badwords = [
-    "ㅅㅂ", "시발", "씨발", "ㅂㅅ", "병신", "미친", "개새", "지랄", "꺼져", "존나"
-]
-
-keyword_responses = {
-    "게임": [
-        "게임 얘기구나… 그럼 접대를 열어도 괜찮겠네.",
-        "게임을 정해야 하는 거야? 필요하면 결정전으로 정리할 수 있어.",
-        "게임이라… 다 같이 할 수 있는 쪽이 좋겠지."
-    ],
-    "롤": [
-        "롤을 할 생각이야? 음… 감정 소모가 좀 클 수도 있겠네.",
-        "롤이라. 오늘 분위기가 버틸 수 있을지 모르겠네."
-    ],
-    "마크": [
-        "마크는 비교적 평화롭지… 아마도.",
-        "마크라면 조금 느긋하게 있어도 되겠네."
-    ],
-    "배고파": [
-        "배고프구나… 그럼 뭔가 먹는 게 먼저 아닐까?",
-        "그 상태로는 집중력이 떨어질 텐데… 밥부터 먹어."
-    ],
-    "졸려": [
-        "졸리면 쉬는 게 좋겠어. 억지로 버티는 건 효율이 낮아.",
-        "그건 휴식이 필요하다는 뜻이야. 아마도."
-    ],
-    "추워": [
-        "추운 건 별로야… 따뜻하게 있는 게 좋겠어.",
-        "지금은 따뜻한 옷을 입는 게 좋겠어. 추위는… 별로 좋아하지 않아."
-    ],
-    "호드": [
-        "…왜 갑자기 내 이름을 부르는 거야?",
-        "나를 찾은 거야? 무슨 일인지 들어볼게.",
-        "호드에 대해 말하는 거라면… 내가 직접 듣고 있어."
-    ],
-    "접대": [
-        "접대를 시작할 생각이야? 준비는 되어 있어.",
-        "접대라… 그럼 참가자부터 정리해야겠네."
-    ]
-}
-
-# =========================
-# 감정 관련
+# 감정/호감도 관련
 # =========================
 def update_emotion():
     global emotion_state, stress_level
@@ -199,17 +107,282 @@ def update_emotion():
     else:
         emotion_state = "unstable"
 
-def get_chat_response(name):
-    if emotion_state == "calm":
-        pool = chat_responses_calm
-    elif emotion_state == "warm":
-        pool = chat_responses_warm
-    elif emotion_state == "worried":
-        pool = chat_responses_worried
+def get_affection_tier(affection):
+    if affection >= 80:
+        return "special"
+    elif affection >= 50:
+        return "close"
+    elif affection >= 20:
+        return "normal"
     else:
-        pool = chat_responses_unstable
+        return "low"
 
-    return random.choice(pool).format(name=name)
+def clamp_affection(value):
+    return max(0, min(100, value))
+
+# =========================
+# 호드 대사
+# =========================
+horde_lines = [
+    "…모두 집중해. 이번 상황은 조금 다를 수도 있어.",
+    "괜찮아, 아직 돌이킬 수 있어.",
+    "…내 판단이 틀리지 않았으면 좋겠어.",
+    "지금은 침착하게 대응해야 해.",
+    "조금만 더 버티면 돼… 아마도."
+]
+
+# 감정 + 호감도 기반 멘션 대사
+dialogues = {
+    "calm": {
+        "low": [
+            "{name}… 왔구나. 상태는 괜찮은 거지?",
+            "{name}, 필요한 일이 있으면 말해.",
+            "{name}, 지금은 비교적 안정적이야.",
+            "{name}, 너무 서두르진 마.",
+        ],
+        "normal": [
+            "{name}, 오늘도 왔네. 큰 문제는 없어 보여.",
+            "{name}, 혹시 불편한 건 없어?",
+            "{name}, 지금 흐름은 나쁘지 않아.",
+            "{name}, 힘들면 말해줘. 가능한 선에서 도와줄게.",
+        ],
+        "close": [
+            "{name}… 왔구나. 오늘은 괜찮아 보여서 다행이야.",
+            "{name}, 요즘 자주 보이네. 나쁘지 않아.",
+            "{name}, 네가 오면 분위기가 조금 안정되는 것 같아.",
+            "{name}, 오늘은 무리하지 말고 천천히 해.",
+        ],
+        "special": [
+            "{name}… 왔네. 오늘은 기다리고 있었어. 아, 꼭 그런 의미는 아니고.",
+            "{name}, 네 상태부터 먼저 확인하고 싶었어. 괜찮아 보여서 다행이야.",
+            "{name}, 오늘도 와줘서 고마워. …업무적인 의미만은 아닐지도 모르겠네.",
+            "{name}, 네가 있으면 조금 안심돼.",
+        ],
+    },
+    "warm": {
+        "low": [
+            "{name}, 지금은 비교적 괜찮아. 필요한 게 있으면 말해.",
+            "{name}, 너무 긴장하진 않아도 돼.",
+            "{name}, 서두르지 않으면 돼.",
+        ],
+        "normal": [
+            "{name}, 오늘도 봐서 다행이야.",
+            "{name}, 지금 분위기는 나쁘지 않아.",
+            "{name}, 괜찮다면 조금 더 같이 있어도 돼.",
+        ],
+        "close": [
+            "{name}, 또 왔구나. …반가워.",
+            "{name}, 오늘은 조금 편안해 보여.",
+            "{name}, 네가 오면 분위기가 좋아지는 편이야.",
+        ],
+        "special": [
+            "{name}, 네가 오면 괜찮아지는 부분이 있어.",
+            "{name}… 오늘도 와줬네. 그건 솔직히 기뻐.",
+            "{name}, 네가 있는 쪽으로 자꾸 시선이 가. 신경 쓰이게 하네.",
+        ],
+    },
+    "worried": {
+        "low": [
+            "{name}, 지금은 조금 조심하는 게 좋겠어.",
+            "{name}, 분위기가 안정적이지는 않아.",
+            "{name}, 말은 조금 부드럽게 해주는 편이 좋겠어.",
+        ],
+        "normal": [
+            "{name}, 지금은 조금 신중하게 가는 게 좋아.",
+            "{name}, 괜찮아… 아직 크게 틀어진 건 아니야.",
+            "{name}, 무리하지 않으면 돼.",
+        ],
+        "close": [
+            "{name}, 괜찮지? 조금 걱정돼.",
+            "{name}, 오늘은 네 상태를 좀 더 보고 싶어.",
+            "{name}, 지금은 잠깐 쉬는 것도 괜찮아.",
+        ],
+        "special": [
+            "{name}, 네가 괜찮은지 먼저 묻고 싶었어.",
+            "{name}… 지금은 조금 불안해. 그러니까 네가 괜찮다고 말해주면 좋겠어.",
+            "{name}, 무리하고 있으면 바로 말해. 그냥 넘기고 싶지 않아.",
+        ],
+    },
+    "unstable": {
+        "low": [
+            "{name}, 지금은 말을 조금 고르는 게 좋겠어.",
+            "{name}, 분위기가 좋지 않아. 이해해 줘.",
+            "{name}, 지금은 조심하는 편이 좋아.",
+        ],
+        "normal": [
+            "{name}… 괜찮아. 아직은 통제 가능해.",
+            "{name}, 지금은 조금 예민할 수도 있어.",
+            "{name}, 큰 문제는 아니야. 아직은.",
+        ],
+        "close": [
+            "{name}, 지금은 내 상태가 썩 좋진 않아.",
+            "{name}, 괜찮다고 말하고 싶지만… 조금 힘들어.",
+            "{name}, 그래도 네 말은 들을 수 있어.",
+        ],
+        "special": [
+            "{name}… 너는 괜찮아? 지금은 그게 제일 신경 쓰여.",
+            "{name}, 지금은 내가 평소 같지 않을 수도 있어. 그래도 너한텐 제대로 말하고 싶어.",
+            "{name}, 조금 불안정해. 그러니까… 너무 멀리 가지는 마.",
+        ],
+    }
+}
+
+badword_responses = [
+    "…그런 말은 조금 줄이는 게 좋겠어.",
+    "표현을 조금만 부드럽게 해도 괜찮지 않을까?",
+    "그렇게까지 날카롭게 말하지 않아도 전달은 될 거야.",
+    "진정해. 지금은 감정보다 말의 방향을 정리하는 게 먼저야.",
+    "…듣고 있으면 조금 신경 쓰여.",
+    "화난 건 알겠는데, 말은 조금만 가라앉혀 줘."
+]
+
+unstable_badword_responses = [
+    "{name}… 지금 상태, 좋지 않아 보여.",
+    "{name}, 그 말은 그냥 넘기기엔 조금 위험해.",
+    "{name}… 너, 상담이 필요해 보여.",
+    "{name}, 이대로 두면 더 안 좋아질 것 같아.",
+    "{name}, 따라와. 지금 상태를 정리할 필요가 있어.",
+    "{name}… 괜찮다고 말할 수 있는 상태가 아닌 것 같아.",
+    "{name}, 지금은 감정보다 조정이 먼저야."
+]
+
+badwords = [
+    "ㅅㅂ", "시발", "씨발", "ㅂㅅ", "병신", "미친", "개새", "지랄", "꺼져", "존나"
+]
+
+# =========================
+# 키워드 반응
+# =========================
+keyword_groups = [
+    (["게임", "겜", "할거", "뭐하지"], [
+        "게임 얘기구나… 그럼 접대를 열어도 괜찮겠네.",
+        "게임을 정해야 하는 거야? 필요하면 결정전으로 정리할 수 있어.",
+        "게임이라… 다 같이 할 수 있는 쪽이 좋겠지."
+    ]),
+    (["롤", "리그오브레전드", "칼바람"], [
+        "롤이라. 오늘 분위기가 버틸 수 있을지 모르겠네.",
+        "감정 소모가 좀 클 수도 있겠네. 그래도 원하면 말리진 않을게."
+    ]),
+    (["발로", "발로란트"], [
+        "발로란트라… 집중력은 충분해?",
+        "반응속도가 필요한 쪽이네. 오늘 컨디션은 어떤데?"
+    ]),
+    (["마크", "마인크래프트"], [
+        "마크는 비교적 평화롭지… 아마도.",
+        "느긋하게 하기엔 괜찮은 선택 같아."
+    ]),
+    (["메이플", "던파", "로아"], [
+        "그쪽은 시간이 꽤 들겠네.",
+        "장기전이 될 수도 있겠어. 괜찮겠어?"
+    ]),
+    (["배고파", "배고픔", "배고", "허기"], [
+        "배고프구나… 그럼 뭔가 먹는 게 먼저 아닐까?",
+        "그 상태로는 집중력이 떨어질 텐데. 밥부터 먹어."
+    ]),
+    (["졸려", "피곤", "자고싶", "잠와"], [
+        "졸리면 쉬는 게 좋겠어. 억지로 버티는 건 효율이 낮아.",
+        "그건 휴식이 필요하다는 뜻이야. 아마도."
+    ]),
+    (["추워", "춥다", "추움"], [
+        "추운 건 별로야… 따뜻하게 있는 게 좋겠어.",
+        "지금은 따뜻한 옷을 입는 게 좋겠어. 추위는 좋아하지 않아."
+    ]),
+    (["더워", "덥다", "더움"], [
+        "더우면 집중이 흐트러질 수 있어.",
+        "적당한 온도가 좋을 텐데. 너무 덥진 않게 해."
+    ]),
+    (["호드", "hod"], [
+        "…왜 갑자기 내 이름을 부르는 거야?",
+        "나를 찾은 거야? 무슨 일인지 들어볼게.",
+        "호드에 대해 말하는 거라면… 내가 직접 듣고 있어."
+    ]),
+    (["접대", "결정전"], [
+        "접대를 시작할 생각이야? 준비는 되어 있어.",
+        "그럼 참가자부터 정리해야겠네."
+    ]),
+    (["공부", "과제", "시험", "중간", "기말"], [
+        "그건 미루는 편보다 지금 조금이라도 하는 게 낫겠지.",
+        "시험 얘기구나… 일단 범위부터 정리해보는 게 좋아."
+    ]),
+    (["학교", "수업", "교수", "조별"], [
+        "학교 쪽 일이면 피곤할 만도 하지.",
+        "그건 신경 쓸 게 많겠네. 천천히 정리해."
+    ]),
+    (["심심", "할거없", "노잼"], [
+        "그렇다면 게임추천이나 결정을 써도 괜찮겠네.",
+        "심심한 거라면, 뭐라도 하나 정하는 게 좋겠어."
+    ]),
+    (["안녕", "ㅎㅇ", "하이", "hello"], [
+        "…안녕. 오늘 상태는 괜찮은 거지?",
+        "왔구나. 무리하고 있진 않았으면 좋겠네."
+    ]),
+    (["잘자", "굿나잇", "자는"], [
+        "잘 자. 충분히 쉬는 건 중요하니까.",
+        "오늘은 여기까지구나. 푹 쉬어."
+    ]),
+    (["굿모닝", "좋은아침", "아침"], [
+        "아침부터 왔네. 생각보다 부지런하구나.",
+        "좋은 아침이네. 오늘은 무리만 하지 마."
+    ]),
+    (["점심", "저녁", "야식"], [
+        "식사는 제때 하는 편이 좋아.",
+        "뭘 먹을지 못 정했으면 결정으로 정해도 되겠네."
+    ]),
+    (["노래", "음악", "플리"], [
+        "음악 얘기구나. 분위기 정리엔 도움이 되지.",
+        "지금 분위기에 맞는 걸로 고르면 좋겠네."
+    ]),
+    (["영화", "애니", "드라마"], [
+        "긴 걸 볼 생각이야? 그럼 시간은 꽤 쓰겠네.",
+        "가볍게 보기엔 괜찮을 것 같아."
+    ]),
+    (["웃김", "ㅋㅋ", "lol"], [
+        "…재밌는 얘기였나 보네.",
+        "분위기가 나쁘지 않네. 그건 다행이야."
+    ]),
+    (["슬픔", "우울", "속상", "눈물"], [
+        "괜찮다면 조금 쉬어도 돼.",
+        "그런 상태면 혼자 버티지 않았으면 좋겠어."
+    ]),
+    (["화남", "빡침", "짜증"], [
+        "화난 건 알겠어. 그래도 말은 조금만 정리해보자.",
+        "지금은 감정보다 방향을 먼저 잡는 게 좋아."
+    ]),
+    (["사랑", "좋아", "호감"], [
+        "…갑자기 그런 얘기구나.",
+        "호감 같은 건 함부로 정리하기 어렵지."
+    ]),
+    (["비", "눈", "날씨"], [
+        "날씨가 신경 쓰이는 날인가 보네.",
+        "추위만 심하지 않으면 괜찮을 텐데."
+    ]),
+    (["치킨", "피자", "햄버거", "떡볶이"], [
+        "그 얘기를 들으니까 나도 식사 생각이 나네.",
+        "먹는 걸 고르는 것도 결정이 필요하지."
+    ]),
+    (["커피", "차", "음료"], [
+        "너무 과한 카페인은 피하는 게 좋겠지만… 필요하면 어쩔 수 없지.",
+        "따뜻한 쪽이 더 나을 것 같아."
+    ]),
+]
+
+def get_keyword_response(content):
+    for triggers, responses in keyword_groups:
+        for trigger in triggers:
+            if trigger in content:
+                return random.choice(responses)
+    return None
+
+# =========================
+# 대사 선택
+# =========================
+def get_chat_response(user):
+    data = get_user_data(user)
+    affection = data["affection"]
+    tier = get_affection_tier(affection)
+
+    pool = dialogues[emotion_state][tier]
+    return random.choice(pool).format(name=user.display_name)
 
 # =========================
 # 승패 계산
@@ -244,6 +417,7 @@ def decide_winner():
 @bot.event
 async def on_ready():
     load_data()
+    update_emotion()
     print(f"{bot.user} 로그인 완료!")
     print("데이터 로드 완료")
 
@@ -264,6 +438,7 @@ async def on_message(message):
     # 멘션 반응
     if bot.user in message.mentions:
         user_data["mention_count"] += 1
+        user_data["affection"] = clamp_affection(user_data["affection"] + 1)
 
         if user_data["mention_count"] >= 5 and stress_level > 0:
             stress_level -= 1
@@ -271,7 +446,7 @@ async def on_message(message):
         update_emotion()
         save_data()
 
-        response = get_chat_response(message.author.display_name)
+        response = get_chat_response(message.author)
 
         if user_data["mention_count"] >= 10:
             extra = random.choice([
@@ -289,6 +464,8 @@ async def on_message(message):
     found_badword = any(bad in content for bad in badwords)
     if found_badword:
         name = message.author.display_name
+        user_data["affection"] = clamp_affection(user_data["affection"] - 2)
+        save_data()
 
         if emotion_state == "unstable":
             await message.channel.send(
@@ -305,18 +482,21 @@ async def on_message(message):
                 return
 
     # 특정 단어 반응
-    for keyword, responses in keyword_responses.items():
-        if keyword in content:
-            if now - last_response_time > 10:
-                await message.channel.send(random.choice(responses))
-                last_response_time = now
-            await bot.process_commands(message)
-            return
+    keyword_reply = get_keyword_response(content)
+    if keyword_reply:
+        if now - last_response_time > 10:
+            await message.channel.send(keyword_reply)
+            last_response_time = now
+        await bot.process_commands(message)
+        return
 
     # 대화 끼어들기
     if now - last_response_time > cooldown:
-        if random.random() < 0.1:
-            response = get_chat_response(message.author.display_name)
+        if random.random() < 0.10:
+            user_data["affection"] = clamp_affection(user_data["affection"] + 1)
+            save_data()
+
+            response = get_chat_response(message.author)
             await message.channel.send(response)
             last_response_time = now
 
@@ -337,6 +517,30 @@ async def ping(ctx):
     await ctx.send("퐁!")
 
 @bot.command()
+async def 호드도움(ctx):
+    msg = (
+        "📘 **호드 도움**\n\n"
+        "**게임 기능**\n"
+        "`!참가` - 접대 참가\n"
+        "`!시작` - 접대 시작\n"
+        "`!다음` - 다음 라운드\n"
+        "`!랭킹` - 승점 랭킹 확인\n\n"
+        "**기억/상태**\n"
+        "`!기억` - 내 기록 확인\n"
+        "`!기억 @유저` - 다른 유저 기록 확인\n"
+        "`!감정` - 현재 호드 감정 상태 확인\n"
+        "`!호감도` - 내 호감도 확인\n\n"
+        "**유용한 기능**\n"
+        "`!게임추천` - 오늘 할 게임 추천\n"
+        "`!결정 항목1 항목2 항목3` - 랜덤으로 하나 결정\n\n"
+        "**기타**\n"
+        "호드를 멘션하면 반응할 수 있어.\n"
+        "대화 중에도 가끔 끼어들 수 있어.\n"
+        "특정 단어에 반응하기도 해."
+    )
+    await ctx.send(msg)
+
+@bot.command()
 async def 참가(ctx):
     global stress_level
 
@@ -348,6 +552,7 @@ async def 참가(ctx):
 
         data = get_user_data(ctx.author)
         data["games_played"] += 1
+        data["affection"] = clamp_affection(data["affection"] + 2)
         save_data()
 
         await ctx.send(f"{ctx.author.display_name} 참가 완료!")
@@ -415,6 +620,13 @@ async def 시작(ctx):
 
         data = get_user_data(w)
         data["wins"] += 1
+        data["affection"] = clamp_affection(data["affection"] + 3)
+
+    # 패자 호감도 소폭 증가
+    for p in choices.keys():
+        if p not in winners:
+            data = get_user_data(p)
+            data["affection"] = clamp_affection(data["affection"] + 1)
 
     save_data()
 
@@ -467,12 +679,45 @@ async def 기억(ctx, member: discord.Member = None):
         f"- 채팅 감지 횟수: {data['chat_count']}\n"
         f"- 게임 참가 횟수: {data['games_played']}\n"
         f"- 승리 횟수: {data['wins']}\n"
+        f"- 호감도: {data['affection']}\n"
     )
     await ctx.send(msg)
 
 @bot.command()
 async def 감정(ctx):
     await ctx.send(f"지금 내 상태는… {emotion_state} 정도인 것 같아. 스트레스 수치는 {stress_level}야.")
+
+@bot.command()
+async def 호감도(ctx, member: discord.Member = None):
+    target = member or ctx.author
+    data = get_user_data(target)
+    tier = get_affection_tier(data["affection"])
+
+    tier_text = {
+        "low": "낮음",
+        "normal": "보통",
+        "close": "높음",
+        "special": "특별"
+    }
+
+    await ctx.send(f"{target.display_name}에 대한 현재 호감도는 {data['affection']}이야. 단계는 **{tier_text[tier]}** 정도로 보면 돼.")
+
+@bot.command()
+async def 게임추천(ctx):
+    games = [
+        "롤", "발로란트", "마인크래프트", "메이플스토리", "로스트아크",
+        "배틀그라운드", "이터널리턴", "테라리아", "오버워치", "가볍게 수다"
+    ]
+    await ctx.send(f"오늘은… **{random.choice(games)}** 쪽이 괜찮을 것 같아.")
+
+@bot.command()
+async def 결정(ctx, *options):
+    if len(options) < 2:
+        await ctx.send("최소 두 개는 줘야 정할 수 있어.")
+        return
+
+    chosen = random.choice(options)
+    await ctx.send(f"정리해보면… **{chosen}** 쪽으로 가는 게 좋겠어.")
 
 @bot.command()
 async def 초기화(ctx):
@@ -484,6 +729,7 @@ async def 초기화(ctx):
     update_emotion()
     await ctx.send("참가자와 진행 상태를 정리했어. 다시 시작할 수 있어.")
 
+# =========================
 # 실행
-import os
+# =========================
 bot.run(os.getenv("TOKEN"))
